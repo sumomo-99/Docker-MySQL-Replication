@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  main:
+    image: "mysql:8.0.29-oracle"
+    networks:
+      - mysqlnetwork
+    volumes:
+      - type: bind
+        source: "./main/main.cnf"
+        target: "/etc/mysql/conf.d/main.cnf"
+      - type: bind
+        source: "./main/docker-entrypoint-initdb.d"
+        target: "/docker-entrypoint-initdb.d"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h127.0.0.1", "-u${MAIN_MYSQL_USER}", "-p${MAIN_MYSQL_PASSWORD}", "--silent"]
+      interval: 20s
+      timeout: 1s
+      retries: 10
+      start_period: 10s
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=${MAIN_MYSQL_USER}
+      - MYSQL_PASSWORD=${MAIN_MYSQL_PASSWORD}
+  replica:
+    image: "mysql:8.0.29-oracle"
+    networks:
+      - mysqlnetwork
+    volumes:
+      - type: bind
+        source: "./replica/replica.cnf"
+        target: "/etc/mysql/conf.d/replica.cnf"
+      - type: bind
+        source: "./replica/docker-entrypoint-initdb.d"
+        target: "/docker-entrypoint-initdb.d"
+    depends_on:
+      main:
+        condition: service_healthy
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MAIN_HOST=main
+      - REPLICA_USER=${MAIN_MYSQL_USER}
+      - REPLICA_PASSWORD=${MAIN_MYSQL_PASSWORD}
+networks:
+  mysqlnetwork:
